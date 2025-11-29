@@ -34,6 +34,14 @@ export function getUserInfo() {
   });
 }
 
+// 根据用户ID获取用户信息
+export function getUserInfoById(id) {
+  return request({
+    url: `/user/info/${id}`,
+    method: 'get'
+  });
+}
+
 // 更新用户信息
 export function updateUserInfo(data) {
   return request({

@@ -28,7 +28,29 @@
         </el-form-item>
         
         <el-form-item label="手机号" prop="phone">
-          <el-input v-model="registerForm.phone" placeholder="请输入手机号" />
+          <el-input v-model="registerForm.phone" placeholder="请输入手机号" />        
+        </el-form-item>
+
+        <!-- 验证码输入框 -->
+        <el-form-item label="验证码" prop="captcha">
+          <el-input 
+            v-model="registerForm.captcha" 
+            placeholder="请输入验证码" 
+            class="captcha-input"
+            @keyup.enter="handleRegister"
+          >
+            <template #append>
+              <div class="captcha-wrapper">
+                <img 
+                  :src="captchaUrl" 
+                  @click="refreshCaptcha" 
+                  alt="验证码" 
+                  class="captcha-image" 
+                  title="点击刷新验证码"
+                >
+              </div>
+            </template>
+          </el-input>
         </el-form-item>
         
         <el-form-item label="头像" prop="avatarUrl">
@@ -53,16 +75,16 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
-import { register } from '../../api/user';
-import { updateAvatar } from '../../api/user';
+import { register, getCaptcha, updateAvatar } from '../../api/user';
 
 const router = useRouter();
 const registerFormRef = ref(null);
 const loading = ref(false);
+const captchaUrl = ref('');
 
 // 注册表单
 const registerForm = reactive({
@@ -72,6 +94,7 @@ const registerForm = reactive({
   realName: '',
   studentNo: '',
   phone: '',
+  captcha: '',
   avatarUrl: ''
 });
 
@@ -118,7 +141,21 @@ const registerRules = {
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
+  ],
+  captcha: [
+    { required: true, message: '请输入验证码', trigger: 'blur' }
   ]
+};
+
+// 刷新验证码
+const refreshCaptcha = async () => {
+  try {
+    const res = await getCaptcha();
+    captchaUrl.value = res.data;
+  } catch (error) {
+    console.error('获取验证码失败:', error);
+    ElMessage.error('获取验证码失败');
+  }
 };
 
 // 处理注册
@@ -138,6 +175,8 @@ const handleRegister = () => {
         router.push('/user/login');
       } catch (error) {
         console.error('注册失败:', error);
+        // 注册失败时刷新验证码
+        refreshCaptcha();
       } finally {
         loading.value = false;
       }
@@ -162,11 +201,20 @@ const beforeAvatarUpload = (file) => {
 // 上传头像
 const uploadAvatar = async (options) => {
   try {
-    // 模拟上传到OSS的过程，实际项目中应该调用后端接口
-    // 这里假设已经有了一个临时token可以直接上传
+    // 检查文件是否存在
+    if (!options.file) {
+      ElMessage.error('请选择文件');
+      return;
+    }
+    
     const res = await updateAvatar(options.file);
-    registerForm.avatarUrl = res.data;
-    ElMessage.success('上传成功');
+    // 根据后端实际返回的数据结构处理结果
+    if (res.code === 200) {  // 修改为200而不是1
+      registerForm.avatarUrl = res.data;
+      ElMessage.success('上传成功');
+    } else {
+      ElMessage.error(res.message || res.msg || '上传失败');
+    }
   } catch (error) {
     console.error('上传失败:', error);
     ElMessage.error('上传失败');
@@ -177,6 +225,11 @@ const uploadAvatar = async (options) => {
 const goToLogin = () => {
   router.push('/user/login');
 };
+
+// 组件挂载时获取验证码
+onMounted(() => {
+  refreshCaptcha();
+});
 </script>
 
 <style scoped>
@@ -215,6 +268,38 @@ const goToLogin = () => {
 
 .register-form {
   margin-top: 20px;
+}
+
+.captcha-input {
+  width: 100%;
+}
+
+.captcha-wrapper {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f5f7fa;
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.captcha-image {
+  cursor: pointer;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  transition: transform 0.2s;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.captcha-image:hover {
+  transform: scale(1.05);
 }
 
 .avatar-uploader {

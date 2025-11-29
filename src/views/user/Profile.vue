@@ -171,6 +171,8 @@ const fetchUserInfo = async () => {
     basicForm.realName = res.data.realName;
     basicForm.studentNo = res.data.studentNo;
     basicForm.phone = res.data.phone;
+    // 确保头像URL也被正确填充
+    basicForm.avatarUrl = res.data.avatarUrl;
   } catch (error) {
     console.error('获取用户信息失败:', error);
   }
@@ -182,11 +184,13 @@ const updateBasicInfo = () => {
     if (valid) {
       basicLoading.value = true;
       try {
+        // 构建更新数据，确保包含所有字段
         const updateData = {
           id: userInfo.value.id,
           realName: basicForm.realName,
           studentNo: basicForm.studentNo,
-          phone: basicForm.phone
+          phone: basicForm.phone,
+          avatarUrl: basicForm.avatarUrl || userInfo.value.avatarUrl
         };
         
         await updateUserInfo(updateData);
@@ -244,6 +248,8 @@ const uploadAvatar = async (options) => {
   try {
     const res = await updateAvatar(options.file);
     userInfo.value.avatarUrl = res.data;
+    // 同时更新表单中的头像URL，确保后续保存不会覆盖
+    basicForm.avatarUrl = res.data;
     ElMessage.success('头像上传成功');
   } catch (error) {
     console.error('上传失败:', error);

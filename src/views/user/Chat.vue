@@ -83,7 +83,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getChatUserListWithDetail, getChatHistory, sendMessage as apiSendMessage, markMessageAsRead, deleteContact as apiDeleteContact } from '../../api/chat';
-import { getUserInfo } from '../../api/user';
+import { getUserInfo, getUserInfoById } from '../../api/user';
 import eventBus from '../../utils/eventBus';
 import webSocketClient from '../../utils/websocket';
 import { formatDateTime } from '../../utils/dateUtils';
@@ -153,9 +153,9 @@ const fetchChatUsersNow = async () => {
           console.log('找到匹配的用户:', targetUser);
           selectChatUser(targetUser);
         } else {
-          console.log('未找到匹配的用户，可能需要创建新的聊天');
-          // 如果在现有聊天列表中找不到该用户，可能需要创建新的聊天
-          // 这里可以添加逻辑来处理这种情况
+          console.log('未找到匹配的用户，尝试创建新的聊天');
+          // 如果在现有聊天列表中找不到该用户，尝试获取该用户信息并创建新的聊天
+          await createNewChat(toUserId);
         }
       }
     } else {
@@ -166,6 +166,53 @@ const fetchChatUsersNow = async () => {
     console.error('获取聊天用户列表失败:', error);
     ElMessage.error('获取聊天用户列表失败: ' + (error.message || '未知错误'));
     chatUsers.value = []; // 确保在错误情况下设置为空数组
+  }
+};
+
+// 创建新的聊天会话
+const createNewChat = async (userId) => {
+  try {
+    // 调用API获取用户详细信息
+    const res = await getUserInfoById(userId);
+    if (res && res.data) {
+      const user = res.data;
+      
+      // 创建用户对象
+      const newUser = {
+        userId: user.id,
+        username: user.username,
+        realName: user.realName || user.username,
+        avatarUrl: user.avatarUrl,
+        unreadCount: 0
+      };
+      
+      // 将新用户添加到聊天列表的开头
+      chatUsers.value.unshift(newUser);
+      
+      // 选择该用户
+      selectChatUser(newUser);
+      
+      console.log('已创建新的聊天会话:', newUser);
+    } else {
+      // 如果无法获取用户信息，创建一个临时的用户对象
+      const newUser = {
+        userId: userId,
+        username: '用户' + userId,
+        realName: '用户' + userId,
+        unreadCount: 0
+      };
+      
+      // 将新用户添加到聊天列表的开头
+      chatUsers.value.unshift(newUser);
+      
+      // 选择该用户
+      selectChatUser(newUser);
+      
+      console.log('已创建临时聊天会话:', newUser);
+    }
+  } catch (error) {
+    console.error('创建新聊天失败:', error);
+    ElMessage.error('无法联系该用户');
   }
 };
 
